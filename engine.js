@@ -4,6 +4,8 @@ var wrap = require('word-wrap');
 var map = require('lodash.map');
 var longest = require('longest');
 var rightPad = require('right-pad');
+var fs = require('fs');
+var path = require('path');
 
 var filter = function(array) {
   return array.filter(function(x) {
@@ -19,12 +21,33 @@ module.exports = function (options) {
   var types = options.types;
 
   var length = longest(Object.keys(types)).length + 1;
-  var choices = map(types, function (type, key) {
+  var typeChoices = map(types, function (type, key) {
     return {
       name: rightPad(key + ':', length) + ' ' + type.description,
       value: key
     };
   });
+  var scopePrompt = {
+    type: 'input',
+    name: 'scope',
+    message: 'What is the scope of this change (e.g. component or file name)? (press enter to skip)\n'
+  };
+  try {
+    var choices = JSON.parse(
+      fs.readFileSync(
+        path.join(path.resolve(''), 'package.json'),
+        'utf8'
+      )
+    ).config.commitizen.scopeList;
+    if (choices) {
+      scopePrompt = {
+        type: 'checkbox',
+        name: 'scope',
+        message: 'Select the scope(s) of this change?',
+        choices: choices
+      };
+    }
+  } catch (error) {}
 
   return {
     // When a user runs `git cz`, prompter will
@@ -53,12 +76,9 @@ module.exports = function (options) {
           type: 'list',
           name: 'type',
           message: 'Select the type of change that you\'re committing:',
-          choices: choices
-        }, {
-          type: 'input',
-          name: 'scope',
-          message: 'What is the scope of this change (e.g. component or file name)? (press enter to skip)\n'
-        }, {
+          choices: typeChoices
+        },
+        scopePrompt, {
           type: 'input',
           name: 'subject',
           message: 'Write a short, imperative tense description of the change:\n'
